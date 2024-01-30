@@ -27,7 +27,7 @@
             android:text="VAD语言识别"/>
     </RelativeLayout>
 
-    <com.carlos.voiceline.mylibrary.VoiceLineView
+    <com.carlos.voiceline.mylibrary.VoiceLineViewcoc
             android:id="@+id/voiceLine"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
