@@ -2,19 +2,33 @@ package com.example.myaudio.audio;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import android.content.ComponentName;
+import android.content.Intent;
+import android.content.ServiceConnection;
 import android.os.Bundle;
+import android.os.IBinder;
 import android.view.Gravity;
+import android.view.KeyEvent;
 import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.AdapterView;
 import android.widget.PopupMenu;
+import android.view.MenuItem;
+
+import android.widget.PopupMenu;
 
 import com.example.myaudio.R;
+import com.example.myaudio.StartSystemPageUtils;
 import com.example.myaudio.bean.AudioBean;
 import com.example.myaudio.databinding.ActivityAudioListBinding;
+import com.example.myaudio.recorder.RecorderActivity;
+import com.example.myaudio.utils.AudioInfoDialog;
 import com.example.myaudio.utils.AudioInfoUtils;
 import com.example.myaudio.utils.Contants;
+import com.example.myaudio.utils.DialogUtils;
+import com.example.myaudio.utils.RenameDialog;
+
 
 import java.io.File;
 import java.io.FilenameFilter;
@@ -30,22 +44,68 @@ public class AudioListActivity extends AppCompatActivity {
     private ActivityAudioListBinding binding;
     private List<AudioBean>mDatas;
     private AudioListAdapter adapter;
+    private AudioService audioService;
+    ServiceConnection connection = new ServiceConnection() {
+        @Override
+        public void onServiceConnected(ComponentName name, IBinder service) {
+            AudioService.AudioBinder audioBinder = (AudioService.AudioBinder) service;
+            audioService = audioBinder.getService();
+            audioService.setOnPlayChangeListener(playChangeListener);
+
+
+        }
+
+        @Override
+        public void onServiceDisconnected(ComponentName componentName) {
+
+        }
+    };
+    AudioService.OnPlayChangeListener playChangeListener = new AudioService.OnPlayChangeListener() {
+        @Override
+        public void playChange(int changPos) {
+            adapter.notifyDataSetChanged();
+        }
+    };
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         binding = ActivityAudioListBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
+//        绑定服务
+        Intent intent = new Intent(this, AudioService.class);
+        bindService(intent,connection,BIND_AUTO_CREATE);
 
 //        为ListView设置数据源和适配器
         mDatas = new ArrayList<>();
         adapter = new AudioListAdapter(this,mDatas);
         binding.audioLv.setAdapter(adapter);
+//        将音频对象集合保存到全局变量当中
+        Contants.setsAudioList(mDatas);
 //        加载数据
         loadDatas();
 //        设置监听时间
         setEvents();
 
     }
+
+
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        unbindService(connection);
+    }
+
+    @Override
+    public boolean onKeyDown(int keyCode, KeyEvent event) {
+//        判断点击了返回按钮
+        if (keyCode == KeyEvent.KEYCODE_BACK) {
+            StartSystemPageUtils.goToHomePage(this);
+            return true;
+        }
+        return super.onKeyDown(keyCode, event);
+    }
+
     /*
     * 设置监听
     * */
@@ -53,13 +113,49 @@ public class AudioListActivity extends AppCompatActivity {
     private void setEvents() {
         adapter.setOnItemPlayClickListener(playClickListener);
         binding.audioLv.setOnItemLongClickListener(longClickListener);
+        binding.audioIb.setOnClickListener(onClickListener);
     }
+        View.OnClickListener onClickListener = new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                //1.关闭音乐
+                audioService.closeMusic();
+                //2.跳转到录音页面
+                startActivity(new Intent(AudioListActivity.this, RecorderActivity.class));
+                //3.销毁当前Activity
+                finish();
+
+            }
+        };
+
+    //        点击每一个播放按钮会回调方法
+    AudioListAdapter.OnItemPlayClickListener playClickListener = new AudioListAdapter.OnItemPlayClickListener() {
+        @Override
+        public void onItemPlayClick(AudioListAdapter adapter, View converView, View playView, int position) {
+            for (int i = 0; i < mDatas.size(); i++) {
+                if (i==position) {
+                    continue;
+                }
+                AudioBean bean = mDatas.get(i);
+                bean.setPlaying(false);
+
+            }
+//            获取当前播放状态
+            boolean playing = mDatas.get(position).isPlaying();
+            mDatas.get(position).setPlaying(!playing);
+            adapter.notifyDataSetChanged();
+            audioService.CutMusioOrPause(position);
+        }
+    };
+
     AdapterView.OnItemLongClickListener longClickListener = new AdapterView.OnItemLongClickListener() {
         @Override
         public boolean onItemLongClick(AdapterView<?> parent, View view, int position, long id) {
             showPopMenu(view,position);
+            audioService.closeMusic();
             return false;
         }
+
 
     };
     /*长按每一项item能够弹出menu窗口*/
@@ -70,28 +166,104 @@ public class AudioListActivity extends AppCompatActivity {
         popupMenu.setOnMenuItemClickListener(new PopupMenu.OnMenuItemClickListener() {
             @Override
             public boolean onMenuItemClick(MenuItem item) {
-                switch (item.getItemId()){
-                    case R.id.menu_info:
-                        break;
-                    case R.id.menu_del:
-                        break;
-                    case R.id.menu_rename:
-                        break;
+                if (item.getItemId() == R.id.menu_info) {
+                    showFileInfoDialog(position);
+                    // 处理 menu_info
+                } else if (item.getItemId() == R.id.menu_del) {
+                    deleteFileByPos(position);
+                    // 处理 menu_del
+                } else if (item.getItemId() == R.id.menu_rename) {
+                    showRenameDialog(position);
+                    // 处理 menu_rename
+                } else {
+                    throw new IllegalStateException("Unexpected value: " + item.getItemId());
                 }
                 return false;
             }
+
         });
+        popupMenu.show();
+
+    }
+
+    /*
+    * 显示文件详情对话框
+    * */
+    private void showFileInfoDialog(int position) {
+        AudioBean bean = mDatas.get(position);
+        AudioInfoDialog dialog = new AudioInfoDialog(this);
+        dialog.show();
+        dialog.setDialogWidth();
+        dialog.setFileInfo(bean);
+        dialog.setCanceledOnTouchOutside(false);
+    }
+
+    /*
+    * 显示重命名对话框
+    * */
+    private void showRenameDialog(int position) {
+        AudioBean bean = mDatas.get(position);
+        String title = bean.getTitle();
+        RenameDialog dialog = new RenameDialog(this);
+        dialog.show();
+        dialog.setDialogWidth();
+        dialog.setTipText(title);
+        dialog.setOnEnsureListener(new RenameDialog.OnEnsureListener() {
+            @Override
+            public void onEnsure(String msg) {
+                renameByPosition(msg,position);
+
+
+            }
+        });
+
+
+    }
+    /*
+    * 对指定位置的文件重新命名
+    * */
+    private void renameByPosition(String msg, int position) {
+        AudioBean audioBean = mDatas.get(position);
+        if (audioBean.getTitle().equals(msg)) {
+            return;
+        }
+        String path = audioBean.getPath();
+        String fileSuffix = audioBean.getFileSuffix();
+        File srcFile = new File(path);  //原来的文件
+//        获取修改路径
+        String destPath = srcFile.getParentFile()+File.separator+msg+fileSuffix;
+        File destFile = new File(destPath);
+//        进行重命名物理操作
+        srcFile.renameTo(destFile);
+//        从内存当中进行修改
+        audioBean.setTitle(msg);
+        audioBean.setPath(destPath);
+        adapter.notifyDataSetChanged();
+
+    }
+
+    /*删除指定位置文件*/
+    private void deleteFileByPos(int position) {
+        AudioBean bean = mDatas.get(position);
+        String title = bean.getTitle();
+        String path =bean.getPath();
+        DialogUtils.showNormalDialog(this, "提示信息", "删除文件后将无法恢复，确定删除指定文件",
+                "确定", new DialogUtils.OnLeftClickListener() {
+                    @Override
+                    public void onLeftClick() {
+                        File file = new File(path);
+                        file.getAbsoluteFile().delete();
+                        mDatas.remove(bean);
+                        adapter.notifyDataSetChanged();
+
+                    }
+                },"取消",null);
 
     }
 
 //    点击每一个播放按钮会回调方法
 
-    AudioListAdapter.OnItemPlayClickListener playClickListener = new AudioListAdapter.OnItemPlayClickListener() {
-        @Override
-        public void onItemPlayClick(AudioListAdapter adapter, View converView, View playView, int position) {
 
-        }
-    };
     private void loadDatas()  {
 //        1.获取指定路径下的音频文件
          File fetchFile= new File(Contants.PATH_FETCH_DIR_RECORD);

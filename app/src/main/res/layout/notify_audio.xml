@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+    <ImageView
+        android:id="@+id/my_iv"
+        android:layout_width="80dp"
+        android:layout_height="80dp"
+        android:src="@mipmap/icon_app_logo"/>
+    <TextView
+        android:id="@+id/ny_tv_title"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_toRightOf="@+id/my_iv"
+        android:text="20230129_222123录音"
+        android:textStyle="bold"
+        android:textColor="@color/black"
+        android:textSize="18sp"
+        android:layout_marginTop="10dp"/>
+    <TextView
+        android:id="@+id/ny_tv_duration"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_below="@+id/ny_tv_title"
+        android:text="00:00:23"
+        android:textColor="@color/black"
+        android:layout_alignLeft="@+id/ny_tv_title"/>
+
+    <ImageView
+        android:id="@+id/ny_iv_close"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentRight="true"
+        android:src="@mipmap/ic_error"/>
+    <ImageView
+        android:id="@+id/ny_iv_next"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:src="@mipmap/icon_next"
+        android:layout_alignBottom="@id/my_iv"
+        android:layout_toLeftOf="@id/ny_iv_close"/>
+    <ImageView
+        android:id="@+id/ny_iv_play"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:src="@mipmap/red_play"
+        android:layout_toLeftOf="@id/ny_iv_next"
+        android:layout_alignTop="@id/ny_iv_next"
+        android:layout_marginLeft="30dp"
+        android:layout_marginRight="30dp"/>
+    <ImageView
+        android:id="@+id/ny_iv_last"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:src="@mipmap/icon_last"
+        android:layout_alignBottom="@id/my_iv"
+        android:layout_toLeftOf="@id/ny_iv_play"/>
+
+
+
+</RelativeLayout>

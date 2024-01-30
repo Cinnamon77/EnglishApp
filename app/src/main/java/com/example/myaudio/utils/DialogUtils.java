@@ -6,6 +6,8 @@ import android.content.DialogInterface;
 
 public class DialogUtils {
 
+    public static DialogUtils.OnLeftClickListener OnLeftClickListener;
+
     public interface OnLeftClickListener{
         public void onLeftClick();
     }
@@ -36,4 +38,6 @@ public class DialogUtils {
         builder.create().show();
 
     }
+
+
 }
